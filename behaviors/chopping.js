@@ -3,7 +3,6 @@ import { TILE_TYPE } from '../map-tile-types.js';
 import { AudioManager } from '../audio-manager.js';
 import { findPath } from '../pathfinding.js';
 import { harvestNextBush } from './gathering.js';
-import { getPlayerHitbox } from '../game/physics.js';
 
 export function findAndMoveToTree(player, gameMap) {
     const allTrees = gameMap.findAll([TILE_TYPE.TREE]);
@@ -25,43 +24,16 @@ export function findAndMoveToTree(player, gameMap) {
 
     for (let i = 0; i < allTrees.length && i < MAX_TREES_TO_CHECK; i++) {
         const treeCoords = allTrees[i];
+        const startX = Math.round(player.pixelX);
+        const startY = Math.round(player.pixelY);
+        const path = findPath(startX, startY, treeCoords.x, treeCoords.y, gameMap);
         
-        let bestPath = null;
-        let minPathLength = Infinity;
-        let bestTargetSpot = null;
-
-        // Find best path to an adjacent spot
-        for(let dx = -1; dx <= 1; dx++) {
-            for(let dy = -1; dy <= 1; dy++) {
-                if(dx === 0 && dy === 0) continue;
-
-                const spotX = treeCoords.x + dx;
-                const spotY = treeCoords.y + dy;
-
-                if (spotX < 0 || spotX >= gameMap.width || spotY < 0 || spotY >= gameMap.height) {
-                    continue;
-                }
-
-                if(!gameMap.isColliding(spotX, spotY)) {
-                    const startX = Math.round(player.pixelX);
-                    const startY = Math.round(player.pixelY);
-                    const path = findPath(startX, startY, spotX, spotY, gameMap);
-
-                    if (path && path.length < minPathLength) {
-                        minPathLength = path.length;
-                        bestPath = path;
-                        bestTargetSpot = {x: spotX, y: spotY};
-                    }
-                }
-            }
-        }
-        
-        if(bestPath) {
+        if(path) {
            player.actionTarget = treeCoords;
-           player.path = bestPath;
-           // The final destination is the empty spot next to the tree.
-           player.targetX = bestTargetSpot.x;
-           player.targetY = bestTargetSpot.y;
+           player.path = path;
+           // The final destination is the tree tile itself. The physics engine will stop the player.
+           player.targetX = treeCoords.x;
+           player.targetY = treeCoords.y;
            player.state = PLAYER_STATE.MOVING_TO_TREE;
            console.log(`[${player.username}] Found pathable tree at (${treeCoords.x}, ${treeCoords.y}). Moving to chop.`);
            pathFound = true;

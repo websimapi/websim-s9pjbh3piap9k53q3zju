@@ -65,6 +65,8 @@ export class Player {
         this.targetX = 0;
         this.targetY = 0;
         this.path = []; // Path for A* movement
+        this.prevPixelX = 0; // For stuck detection
+        this.prevPixelY = 0; // For stuck detection
 
         // For collision avoidance
         const angle = Math.random() * 2 * Math.PI;

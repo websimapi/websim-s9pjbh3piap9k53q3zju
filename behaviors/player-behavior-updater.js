@@ -76,7 +76,10 @@ export function updateAction(player, deltaTime, gameMap, allPlayers, game) {
             }
             updateFollowPath(player, deltaTime, gameMap);
             
-            if (atMoveTarget) {
+            // Check if movement has stopped. This happens if path is empty OR if physics prevents movement.
+            const movementStopped = player.path.length === 0 || (player.pixelX === player.prevPixelX && player.pixelY === player.prevPixelY);
+
+            if (movementStopped) {
                  // Check if we are now touching the tree trunk
                 const treeHitbox = {
                     x: player.actionTarget.x + 0.4375,
@@ -104,43 +107,8 @@ export function updateAction(player, deltaTime, gameMap, allPlayers, game) {
                 if (isTouching) {
                     beginChopping(player, gameMap, game);
                 } else {
-                    console.warn(`[${player.username}] Arrived near tree but not touching. Trying a different spot.`);
-                    // Failsafe: Try to find a path to a different spot around the same tree.
-                    const treeCoords = player.actionTarget;
-                    let bestPath = null;
-                    let minPathLength = Infinity;
-                    let bestTargetSpot = null;
-
-                    for(let dx = -1; dx <= 1; dx++) {
-                        for(let dy = -1; dy <= 1; dy++) {
-                            if(dx === 0 && dy === 0) continue;
-                            const spotX = treeCoords.x + dx;
-                            const spotY = treeCoords.y + dy;
-                            if (spotX < 0 || spotX >= gameMap.width || spotY < 0 || spotY >= gameMap.height || gameMap.isColliding(spotX, spotY)) continue;
-                            
-                            // Don't try pathing to the spot we just came from.
-                            if (spotX === Math.round(player.pixelX) && spotY === Math.round(player.pixelY)) continue;
-
-                            const startX = Math.round(player.pixelX);
-                            const startY = Math.round(player.pixelY);
-                            const path = findPath(startX, startY, spotX, spotY, gameMap);
-                            if (path && path.length < minPathLength) {
-                                minPathLength = path.length;
-                                bestPath = path;
-                                bestTargetSpot = {x: spotX, y: spotY};
-                            }
-                        }
-                    }
-
-                    if (bestPath) {
-                        player.path = bestPath;
-                        player.targetX = bestTargetSpot.x;
-                        player.targetY = bestTargetSpot.y;
-                    } else {
-                        // If we still can't find a path, then give up on this tree and find another.
-                        console.error(`[${player.username}] Failsafe failed. Could not find any other path to the tree. Finding a new tree.`);
-                        startChoppingCycle(player, gameMap);
-                    }
+                    console.warn(`[${player.username}] Arrived near tree but not touching. Finding new tree.`);
+                    startChoppingCycle(player, gameMap);
                 }
             }
             break;

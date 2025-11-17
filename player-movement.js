@@ -65,6 +65,10 @@ export function updateMoveToTarget(player, deltaTime, gameMap) {
 
         let proposedX = player.pixelX + moveX;
         let proposedY = player.pixelY + moveY;
+
+        // Store current position to detect if movement is blocked
+        player.prevPixelX = player.pixelX;
+        player.prevPixelY = player.pixelY;
         
         const originalHitbox = getPlayerHitbox(player);
 

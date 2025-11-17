@@ -33,7 +33,7 @@ function findPath(startX, startY, endX, endY, map) {
 
         const [currentX, currentY] = current.split(',').map(Number);
 
-        const neighbors = getNeighbors(currentX, currentY, map);
+        const neighbors = getNeighbors(currentX, currentY, map, endX, endY);
 
         for (const neighbor of neighbors) {
             const neighborNode = `${neighbor.x},${neighbor.y}`;
@@ -65,7 +65,7 @@ function heuristic(x1, y1, x2, y2) {
     return Math.abs(x1 - x2) + Math.abs(y1 - y2); // Manhattan distance
 }
 
-function getNeighbors(x, y, map) {
+function getNeighbors(x, y, map, endX, endY) {
     const neighbors = [];
     const directions = [
         { dx: 0, dy: -1 }, // up
@@ -83,7 +83,9 @@ function getNeighbors(x, y, map) {
         const newX = x + dir.dx;
         const newY = y + dir.dy;
 
-        if (newX >= 0 && newX < map.width && newY >= 0 && newY < map.height && !map.isColliding(newX, newY)) {
+        const isDestination = (newX === endX && newY === endY);
+
+        if (newX >= 0 && newX < map.width && newY >= 0 && newY < map.height && (!map.isColliding(newX, newY) || isDestination)) {
             // Allow diagonal movement even if one of the adjacent cardinal tiles is blocked.
             // This allows "hugging" corners.
             if (dir.dx !== 0 && dir.dy !== 0) { // It's a diagonal move
