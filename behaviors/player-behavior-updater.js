@@ -1,7 +1,7 @@
 import { PLAYER_STATE } from '../player-state.js';
 import { AudioManager } from '../audio-manager.js';
 import { updateWander, updateMoveToTarget, updateFollowPath } from '../player-movement.js';
-import { beginChopping, finishChopping, startChoppingCycle } from './chopping.js';
+import { beginChopping, finishChopping, startChoppingCycle, findAndMoveToTree } from './chopping.js';
 import { beginHarvestingBushes, beginHarvestingLogs, finishHarvestingBushes, finishHarvestingLogs, harvestNextBush, startGatheringCycle } from './gathering.js';
 import { updateFollow } from './following.js';
 import { TILE_TYPE } from '../map-tile-types.js';
@@ -76,8 +76,6 @@ export function updateAction(player, deltaTime, gameMap, allPlayers, game) {
             }
             updateFollowPath(player, deltaTime, gameMap);
             
-            // New interaction check based on proximity to the actual tree, not just reaching a tile.
-            // The player's movement will be stopped by the collision system. When movement stops (path is empty), we check proximity.
             if (atMoveTarget) {
                  // Check if we are now touching the tree trunk
                 const treeHitbox = {
@@ -87,12 +85,13 @@ export function updateAction(player, deltaTime, gameMap, allPlayers, game) {
                     height: 0.5
                 };
                 const playerHitbox = getPlayerHitbox(player);
-                // Inflate tree hitbox slightly for easier interaction
+                // Inflate tree hitbox slightly for easier interaction.
+                // The size is increased to ensure a player on an adjacent tile can interact.
                 const interactionHitbox = {
-                    x: treeHitbox.x - 0.2,
-                    y: treeHitbox.y - 0.2,
-                    width: treeHitbox.width + 0.4,
-                    height: treeHitbox.height + 0.4,
+                    x: treeHitbox.x - 0.45,
+                    y: treeHitbox.y - 0.45,
+                    width: treeHitbox.width + 0.9,
+                    height: treeHitbox.height + 0.9,
                 };
 
                 const isTouching = (
@@ -105,8 +104,43 @@ export function updateAction(player, deltaTime, gameMap, allPlayers, game) {
                 if (isTouching) {
                     beginChopping(player, gameMap, game);
                 } else {
-                    console.log(`[${player.username}] Arrived near tree but not touching. Finding new tree.`);
-                    startChoppingCycle(player, gameMap);
+                    console.warn(`[${player.username}] Arrived near tree but not touching. Trying a different spot.`);
+                    // Failsafe: Try to find a path to a different spot around the same tree.
+                    const treeCoords = player.actionTarget;
+                    let bestPath = null;
+                    let minPathLength = Infinity;
+                    let bestTargetSpot = null;
+
+                    for(let dx = -1; dx <= 1; dx++) {
+                        for(let dy = -1; dy <= 1; dy++) {
+                            if(dx === 0 && dy === 0) continue;
+                            const spotX = treeCoords.x + dx;
+                            const spotY = treeCoords.y + dy;
+                            if (spotX < 0 || spotX >= gameMap.width || spotY < 0 || spotY >= gameMap.height || gameMap.isColliding(spotX, spotY)) continue;
+                            
+                            // Don't try pathing to the spot we just came from.
+                            if (spotX === Math.round(player.pixelX) && spotY === Math.round(player.pixelY)) continue;
+
+                            const startX = Math.round(player.pixelX);
+                            const startY = Math.round(player.pixelY);
+                            const path = findPath(startX, startY, spotX, spotY, gameMap);
+                            if (path && path.length < minPathLength) {
+                                minPathLength = path.length;
+                                bestPath = path;
+                                bestTargetSpot = {x: spotX, y: spotY};
+                            }
+                        }
+                    }
+
+                    if (bestPath) {
+                        player.path = bestPath;
+                        player.targetX = bestTargetSpot.x;
+                        player.targetY = bestTargetSpot.y;
+                    } else {
+                        // If we still can't find a path, then give up on this tree and find another.
+                        console.error(`[${player.username}] Failsafe failed. Could not find any other path to the tree. Finding a new tree.`);
+                        startChoppingCycle(player, gameMap);
+                    }
                 }
             }
             break;
